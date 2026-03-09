@@ -4,18 +4,32 @@ import Loading from "../../components/Loading";
 import Title from "../../components/admin/Title";
 import { CheckIcon, StarIcon, CalendarIcon, DeleteIcon } from "lucide-react";
 import { kConverter } from "../../lib/kConverter";
+import axios from "axios";
+import { useAppContext } from "../../context/AppContext";
+import toast from "react-hot-toast";
 
 function AddShows() {
   const currency = import.meta.env.VITE_CURRENCY;
+  const { axios, getToken, user, image_base_url } = useAppContext();
   const [nowPlayingMovies, setNowPlayingMovies] = useState([]);
   const [selectMovie, setSelectMovie] = useState(null);
   const [dateTimeSelections, setDateTimeSelections] = useState({});
   const [dateTimeInput, setDateTimeInput] = useState("");
   const [showPrice, setShowPrice] = useState("");
+  const [addingShow, setAddingShow] = useState(false);
 
   const fecthnowPlayingMovies = async () => {
     //fetch now playing movies from TMDB API
-    setNowPlayingMovies(dummyShowsData);
+    try {
+      const { data } = await axios.get("/api/show/now-playing", {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+      if (data.success) {
+        setNowPlayingMovies(data.movies);
+      }
+    } catch (error) {
+      console.error("Error fetching movies:", error);
+    }
   };
 
   const handleDateTimeAdd = () => {
@@ -44,10 +58,52 @@ function AddShows() {
       };
     });
   };
+  const handleSubmit = async () => {
+    try {
+      setAddingShow(true);
+      if (
+        !selectMovie ||
+        Object.keys(dateTimeSelections).length === 0 ||
+        !showPrice
+      ) {
+        return toast("Missing required fields");
+      }
+
+      // Convert dateTimeSelections object to array format
+      const showsInput = Object.entries(dateTimeSelections).map(
+        ([date, time]) => ({ date, time }),
+      );
+
+      const payload = {
+        movieId: selectMovie,
+        showsInput,
+        showPrice: Number(showPrice),
+      };
+
+      const { data } = await axios.post("/api/show/add", payload, {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+
+      if (data.success) {
+        toast.success(data.message);
+        setSelectMovie(null);
+        setDateTimeSelections({});
+        setShowPrice("");
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.error("submission error", error);
+      toast.error("An error occured please try again");
+    }
+    setAddingShow(false);
+  };
 
   useEffect(() => {
-    fecthnowPlayingMovies();
-  }, []);
+    if (user) {
+      fecthnowPlayingMovies();
+    }
+  }, [user]);
 
   return nowPlayingMovies.length > 0 ? (
     <>
@@ -63,7 +119,7 @@ function AddShows() {
             >
               <div className="relative rounded-lg  overflow-hidden">
                 <img
-                  src={movie.poster_path}
+                  src={image_base_url + movie.poster_path}
                   alt=""
                   className="w-full object-cover brightness-90"
                 />
@@ -154,7 +210,11 @@ function AddShows() {
           </ul>
         </div>
       )}
-      <button className="bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer">
+      <button
+        onClick={handleSubmit}
+        disabled={addingShow}
+        className="bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer"
+      >
         Add Show
       </button>
     </>

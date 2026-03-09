@@ -11,9 +11,12 @@ import Loading from "../../components/Loading";
 import Title from "../../components/admin/Title";
 import BlurCircle from "../../components/BlurCircle";
 import { dateFormat } from "../../lib/dateFormat";
+import { useAppContext } from "../../context/AppContext";
+import toast from "react-hot-toast";
 
 function Dashboard() {
   const currency = import.meta.env.VITE_CURRENCY;
+  const { axios, getToken, user, image_base_url } = useAppContext();
   const [dashboardData, setDashboardData] = useState({
     totalBookings: 0,
     totalRevenue: 0,
@@ -26,32 +29,59 @@ function Dashboard() {
   const dashboardCards = [
     {
       title: "Total Bookings",
-      value: dashboardData.totalBookings || "0",
+      value: dashboardData?.totalBookings || 0,
       icon: ChartLineIcon,
     },
     {
       title: "Total Revenue",
-      value: currency + dashboardData.totalRevenue || "0",
+      value: (currency || "") + (dashboardData?.totalRevenue || 0),
       icon: CircleDollarSign,
     },
     {
       title: "Active Shows",
-      value: dashboardData.activeShows.length || "0",
+      value: dashboardData?.activeShows?.length || 0,
       icon: PlayCircleIcon,
     },
     {
       title: "Total Users",
-      value: dashboardData.totalUser || "0",
+      value: dashboardData?.totalUser || 0,
       icon: UserIcon,
     },
   ];
   const fetchDashboardData = async () => {
-    setDashboardData(dummyDashboardData);
-    setLoading(false);
+    try {
+      const { data } = await axios.get("/api/admin/dashboard", {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+
+      console.log("Dashboard Data:", data); // Debug log
+
+      if (data.success) {
+        console.log("Setting dashboard data:", data.dashBoardData); // Debug log
+        setDashboardData(
+          data.dashBoardData || {
+            totalBookings: 0,
+            totalRevenue: 0,
+            activeShows: [],
+            totalUser: 0,
+          },
+        );
+      } else {
+        console.error("API returned success: false", data.message);
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.error("Dashboard error:", error);
+      toast.error("Error fetching dashboard data");
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
   return !loading ? (
     <>
       <Title text1="Admin" text2="Dashboard" />
@@ -81,8 +111,8 @@ function Dashboard() {
             className="w-55 rounded-lg overflow-hidden h-full pb-3 bg-primary.10 border border-primary.20 hover:translate-y-1 transition duration-300"
           >
             <img
-              src={show.movie.poster_path}
-              alt=""
+              src={image_base_url + show.movie.poster_path}
+              alt={show.movie.title}
               className="h-60 w-full object-cover"
             />
             <p className="font-medium p-2 truncate">{show.movie.title}</p>

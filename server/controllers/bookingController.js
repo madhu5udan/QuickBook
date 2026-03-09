@@ -4,6 +4,7 @@ import { clerkClient } from "@clerk/express";
 import Show from "../models/Shows.js";
 import Booking from "../models/Booking.js";
 import stripe from "stripe";
+import { inngest } from "../inngest/index.js";
 
 const checkSeatsAvailability = async (showId, selectedSeats) => {
   try {
@@ -81,6 +82,11 @@ export const createBooking = async (req, res) => {
     booking.paymentLink = session.url;
     // booking.isPaid = true;
     await booking.save();
+    // run inngest
+    await inngest.send({
+      name: "app/checkpayment",
+      data: { bookingId: booking._id.toString() },
+    });
     res.json({ success: true, url: session.url });
   } catch (error) {
     console.log(error.message);

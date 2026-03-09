@@ -1,3 +1,4 @@
+import sendEmail from "../configs/nodemailer.js";
 import Booking from "../models/Booking.js";
 import Show from "../models/Shows.js";
 import User from "../models/User.js";
@@ -74,9 +75,96 @@ const releaseSeatsAndDeleteBooking = inngest.createFunction(
   },
 );
 
+// to send an email
+const sendConfirmationEmail = inngest.createFunction(
+  { id: "send-booking-confirmation-email" },
+  { event: "app/show.booked" },
+  async ({ event, step }) => {
+    const { bookingId } = event.data;
+    const booking = await Booking.findById(bookingId)
+      .populate({
+        path: "show",
+        populate: { path: "movie", model: "Movie" },
+      })
+      .populate("user");
+
+    await sendEmail({
+      to: booking.user.email,
+      subject: `Payment Confirmation: "${booking.show.movie.title}" booked!`,
+      body: `
+<div style="font-family: Arial, sans-serif; background-color:#f4f6f8; padding:30px;">
+  <div style="max-width:600px; margin:auto; background:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+
+    <div style="background:#1e1e2f; color:white; padding:20px; text-align:center;">
+      <h1 style="margin:0;">🎬 Booking Confirmed</h1>
+      <p style="margin:5px 0 0;">Your movie ticket is ready</p>
+    </div>
+
+    <div style="padding:25px; color:#333;">
+
+      <h2>Hello ${userName},</h2>
+      <p>Your booking has been successfully confirmed.</p>
+
+      <table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:14px;">
+        
+        <tr>
+          <td style="padding:10px; font-weight:bold;">Movie</td>
+          <td style="padding:10px;">${movieTitle}</td>
+        </tr>
+
+        <tr style="background:#f7f7f7;">
+          <td style="padding:10px; font-weight:bold;">Date</td>
+          <td style="padding:10px;">${date}</td>
+        </tr>
+
+        <tr>
+          <td style="padding:10px; font-weight:bold;">Show Time</td>
+          <td style="padding:10px;">${time}</td>
+        </tr>
+
+        <tr style="background:#f7f7f7;">
+          <td style="padding:10px; font-weight:bold;">Seats</td>
+          <td style="padding:10px;">${seats}</td>
+        </tr>
+
+        <tr>
+          <td style="padding:10px; font-weight:bold;">Booking ID</td>
+          <td style="padding:10px;">${bookingIdValue}</td>
+        </tr>
+
+      </table>
+
+      <div style="text-align:center; margin-top:30px;">
+        <a href="#" 
+        style="background:#ff3d00; color:white; padding:12px 25px; text-decoration:none; border-radius:6px; font-weight:bold;">
+          View Ticket
+        </a>
+      </div>
+
+      <p style="margin-top:25px;">
+        Please show this email at the theatre entrance.
+      </p>
+
+      <p>Enjoy the movie! 🍿</p>
+
+    </div>
+
+    <div style="background:#f4f4f4; text-align:center; padding:15px; font-size:12px; color:#777;">
+      <p style="margin:0;">Thank you for booking with us!</p>
+      <p style="margin:5px 0 0;">Movie Booking System</p>
+    </div>
+
+  </div>
+</div>
+`,
+    });
+  },
+);
+
 export const functions = [
   syncUserCreation,
   syncUserDeletion,
   syncUserUpdation,
   releaseSeatsAndDeleteBooking,
+  sendConfirmationEmail,
 ];
